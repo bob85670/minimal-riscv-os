@@ -1,3 +1,14 @@
+This is my fork for self-learning purpose only. All rights reversed by Cornell University.
+
+
+```shell
+# Useful command for my setup
+> source ../enable-riscv-gcc-and-qemu.sh
+> make qemu
+Ctrl + a, then type 'x'
+```
+
+
 ## Vision
 
 This project's vision is to help **every** student read **all** the code of a teaching operating system.
