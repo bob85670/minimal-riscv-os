@@ -28,6 +28,42 @@ void format_to_str(char* out, const char* fmt, va_list args) {
                 size_t len = strlen(out);
                 out[len] = c;
                 out[len + 1] = '\0';
+            } else if (*fmt == 'x') {
+                int val = va_arg(args, int);
+
+                // base case: input is int 0
+                if (val == 0) {
+                    char res[2];
+                    if (res) strcpy(res, "0");
+                    strcat(out, res);
+                    continue;
+                }
+
+                // convert decimal to hexadecimal
+                int reminder = 0, i = 1;
+                char hex_buffer[100];
+                while (val != 0) {
+                    reminder = val % 16;
+                    
+                    if (reminder >= 10 & reminder <= 15) {
+                        reminder += 55;
+                    } else {
+                        reminder += 48;
+                    }
+
+                    hex_buffer[i++] = (char)reminder;
+                    val = val / 16;
+                }
+
+                // reverse the char buffer 
+                char str[i];
+                for (int j = 0; j <= i - 1; ++j) {
+                    str[j] = hex_buffer[i - j];
+                    terminal_write(&str[j], 1);
+                }
+                str[i] = '\0';
+
+                strcat(out, str);
             }
         }
     }
@@ -71,8 +107,9 @@ int main() {
      * when implementing formatted output
      */
     printf("%s-%d is awesome!\n\r", "egos", 2000);
-    printf("%c is character $", '$');
-    // printf("%c is character 0", (char)48);
+    printf("%c is character $\n\r", '$');
+    printf("%c is character 0\n\r", (char)48);
+    printf("%x is integer 1234 in hexadecimal\n\r", 1234);
 
     return 0;
 }
