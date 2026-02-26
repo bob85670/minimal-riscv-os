@@ -64,6 +64,12 @@ void format_to_str(char* out, const char* fmt, va_list args) {
                 str[i] = '\0';
 
                 strcat(out, str);
+            } else if (*fmt == 'u') {
+                utoa(va_arg(args, int), out + strlen(out), 10);
+            } else if (*fmt == 'p') {
+                const char hex_prefix[3] = "0x";
+                strcat(out, hex_prefix);
+                utoa(va_arg(args, int), out + strlen(out), 16);
             }
         }
     }
@@ -110,6 +116,8 @@ int main() {
     printf("%c is character $\n\r", '$');
     printf("%c is character 0\n\r", (char)48);
     printf("%x is integer 1234 in hexadecimal\n\r", 1234);
+    printf("%u is the maximum of unsigned int\n\r", (unsigned int)0xFFFFFFFF);
+    printf("%p is the hexadecimal address of the hello-world string\n\r", msg);
 
     return 0;
 }
