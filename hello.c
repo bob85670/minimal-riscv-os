@@ -7,7 +7,7 @@ void terminal_write(const char *str, int len) {
 /* Uncomment line11 - line39
  * when implementing formatted output
  */
-/*
+
 #include <stdlib.h>  // for itoa() and utoa()
 #include <string.h>  // for strlen() and strcat()
 #include <stdarg.h>  // for va_start(), va_end(), va_arg() and va_copy()
@@ -22,6 +22,12 @@ void format_to_str(char* out, const char* fmt, va_list args) {
                 strcat(out, va_arg(args, char*));
             } else if (*fmt == 'd') {
                 itoa(va_arg(args, int), out + strlen(out), 10);
+            } else if (*fmt == 'c') {
+                // terminal_write("arrive here\n\r", 15);
+                char c = (char)va_arg(args, int);
+                size_t len = strlen(out);
+                out[len] = c;
+                out[len + 1] = '\0';
             }
         }
     }
@@ -37,7 +43,7 @@ int printf(const char* format, ...) {
 
     return 0;
 }
-*/
+
 
 /* Uncomment line46 - line57
  * when implementing dynamic memory allocation
@@ -64,7 +70,9 @@ int main() {
     /* Uncomment this line of code
      * when implementing formatted output
      */
-    /* printf("%s-%d is awesome!\n\r", "egos", 2000); */
+    printf("%s-%d is awesome!\n\r", "egos", 2000);
+    printf("%c is character $", '$');
+    // printf("%c is character 0", (char)48);
 
     return 0;
 }
