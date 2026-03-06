@@ -13,19 +13,25 @@ void terminal_write(const char *str, int len) {
 #include <stdarg.h>  // for va_start(), va_end(), va_arg() and va_copy()
 
 void ulltoa(char* dst, size_t len, unsigned long long x) {
+    if (len == 0) return;
+
     char str_buffer[24];
     int i = 23;
-    while (x > 0) {
-        unsigned long long reminder = x % 10;
-        str_buffer[i--] = reminder + '0';
-        x = x / 10;
-    }
-    // copy to dst forward
-    int j = 0, k = i + 1;
-    while (k <= 23) {
-        dst[j++] = str_buffer[k++];
-    }
-    dst[j] = '\0';
+    str_buffer[i] = '\0';
+
+    do {
+        unsigned long long rem = x % 10;
+        str_buffer[--i] = rem + '0';
+        x /= 10;
+    } while (x > 0);
+
+    // use pointer and memcpy
+    const char* src = &str_buffer[i];
+    size_t avail = len - 1;
+    size_t n = 24 - 1;
+    if (n > avail) n = avail;
+    memcpy(dst, src, n);
+    dst[n] = '\0';
     return;
 }
 
@@ -84,9 +90,14 @@ void format_to_str(char* out, const char* fmt, va_list args) {
                 strcat(out, hex_prefix);
                 utoa(va_arg(args, int), out + strlen(out), 16);
             } else if (*fmt == 'llu') {
-                char res[32];
-                ulltoa(res, sizeof(res), (unsigned long long)va_arg(args, unsigned long long));
-                strcat(out, res);
+                unsigned long long val = (unsigned long long)va_arg(args, unsigned long long);
+                if (val == 0) {
+                    strcat(out, "0");
+                } else {
+                    char buf[32];
+                    ulltoa(buf, sizeof(buf), val);
+                    strcat(out, buf);
+                }
             }
         }
     }
@@ -135,7 +146,7 @@ int main() {
     printf("%x is integer 1234 in hexadecimal\n\r", 1234);
     printf("%u is the maximum of unsigned int\n\r", (unsigned int)0xFFFFFFFF);
     printf("%p is the hexadecimal address of the hello-world string\n\r", msg);
-    printf("%llu is the maximum of unsigned long long", 0xFFFFFFFFFFFFFFFFULL);
+    printf("%llu is the maximum of unsigned long long\n\r", 0xFFFFFFFFFFFFFFFFULL);
 
     return 0;
 }
