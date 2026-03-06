@@ -33,17 +33,15 @@ void format_to_str(char* out, const char* fmt, va_list args) {
 
                 // base case: input is int 0
                 if (val == 0) {
-                    char res[2];
-                    if (res) strcpy(res, "0");
-                    strcat(out, res);
+                    strcat(out, "0");
                     continue;
                 }
 
                 // convert decimal to hexadecimal
-                int reminder = 0, i = 1;
                 char hex_buffer[100];
+                int i = 1;
                 while (val != 0) {
-                    reminder = val % 16;
+                    int reminder = val % 16;
                     
                     if (reminder >= 10 & reminder <= 15) {
                         reminder += 55;
@@ -56,14 +54,12 @@ void format_to_str(char* out, const char* fmt, va_list args) {
                 }
 
                 // reverse the char buffer 
-                char str[i];
-                for (int j = 0; j <= i - 1; ++j) {
-                    str[j] = hex_buffer[i - j];
-                    terminal_write(&str[j], 1);
+                while (i > 0) {
+                    --i;
+                    size_t len = strlen(out);
+                    out[len]   = hex_buffer[i];
+                    out[len + 1] = '\0';
                 }
-                str[i] = '\0';
-
-                strcat(out, str);
             } else if (*fmt == 'u') {
                 utoa(va_arg(args, int), out + strlen(out), 10);
             } else if (*fmt == 'p') {
