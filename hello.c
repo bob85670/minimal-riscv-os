@@ -12,7 +12,8 @@ void terminal_write(const char *str, int len) {
 #include <string.h>  // for strlen() and strcat()
 #include <stdarg.h>  // for va_start(), va_end(), va_arg() and va_copy()
 
-void ulltoa(char* dst, size_t len, unsigned long long x) {
+void ulltoa(char* dst, size_t len, unsigned long long x) 
+{
     if (len == 0) return;
 
     char str_buffer[24];
@@ -44,17 +45,25 @@ void format_to_str(char* out, const char* fmt, va_list args) {
             strncat(out, fmt, 1);
         } else {
             fmt++;
-            if (*fmt == 's') {
+            
+            if (*fmt == 's') 
+            {
                 strcat(out, va_arg(args, char*));
-            } else if (*fmt == 'd') {
+            } 
+            else if (*fmt == 'd') 
+            {
                 itoa(va_arg(args, int), out + strlen(out), 10);
-            } else if (*fmt == 'c') {
+            } 
+            else if (*fmt == 'c') 
+            {
                 // terminal_write("arrive here\n\r", 15);
                 char c = (char)va_arg(args, int);
                 size_t len = strlen(out);
                 out[len] = c;
                 out[len + 1] = '\0';
-            } else if (*fmt == 'x') {
+            } 
+            else if (*fmt == 'x') 
+            {
                 unsigned int val = va_arg(args, unsigned int);
 
                 if (val == 0) {
@@ -84,16 +93,24 @@ void format_to_str(char* out, const char* fmt, va_list args) {
                     out[len]   = hex_buffer[i];
                     out[len + 1] = '\0';
                 }
-            } else if (*fmt == 'u') {
+            } 
+            else if (*fmt == 'u') 
+            {
                 utoa(va_arg(args, unsigned int), out + strlen(out), 10);
-            } else if (*fmt == 'p') {
+            } 
+            else if (*fmt == 'p') 
+            {
                 const char hex_prefix[3] = "0x";
                 strcat(out, hex_prefix);
+                
                 // Handle pointer as unsigned long
                 unsigned long ptr_val = (unsigned long)va_arg(args, void*);
                 utoa(ptr_val, out + strlen(out), 16);
-            } else if (strncmp(fmt, "llu", 3) == 0) {
+            } 
+            else if (strncmp(fmt, "llu", 3) == 0) 
+            {
                 unsigned long long val = (unsigned long long)va_arg(args, unsigned long long);
+
                 if (val == 0) {
                     strcat(out, "0");
                 } else {
