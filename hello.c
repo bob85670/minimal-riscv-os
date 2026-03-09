@@ -28,7 +28,8 @@ void ulltoa(char* dst, size_t len, unsigned long long x) {
     // use pointer and memcpy
     const char* src = &str_buffer[i];
     size_t avail = len - 1;
-    size_t n = 24 - 1;
+    size_t n = 24 - i;
+    
     if (n > avail) n = avail;
     memcpy(dst, src, n);
     dst[n] = '\0';
@@ -36,7 +37,9 @@ void ulltoa(char* dst, size_t len, unsigned long long x) {
 }
 
 void format_to_str(char* out, const char* fmt, va_list args) {
-    for(out[0] = 0; *fmt != '\0'; fmt++) {
+    out[0] = '\0';  // Fixed: initialize properly
+
+    for(; *fmt != '\0'; fmt++) {
         if (*fmt != '%') {
             strncat(out, fmt, 1);
         } else {
@@ -52,9 +55,8 @@ void format_to_str(char* out, const char* fmt, va_list args) {
                 out[len] = c;
                 out[len + 1] = '\0';
             } else if (*fmt == 'x') {
-                int val = va_arg(args, int);
+                unsigned int val = va_arg(args, unsigned int);
 
-                // base case: input is int 0
                 if (val == 0) {
                     strcat(out, "0");
                     continue;
@@ -62,17 +64,16 @@ void format_to_str(char* out, const char* fmt, va_list args) {
 
                 // convert decimal to hexadecimal
                 char hex_buffer[100];
-                int i = 1;
+                int i = 0;
                 while (val != 0) {
-                    int reminder = val % 16;
+                    int remainder = val % 16;
                     
-                    if (reminder >= 10 & reminder <= 15) {
-                        reminder += 55;
+                    if (remainder >= 10) {
+                        hex_buffer[i++] = 'a' + (remainder - 10);
                     } else {
-                        reminder += 48;
+                        hex_buffer[i++] = '0' + remainder;
                     }
 
-                    hex_buffer[i++] = (char)reminder;
                     val = val / 16;
                 }
 
@@ -84,12 +85,14 @@ void format_to_str(char* out, const char* fmt, va_list args) {
                     out[len + 1] = '\0';
                 }
             } else if (*fmt == 'u') {
-                utoa(va_arg(args, int), out + strlen(out), 10);
+                utoa(va_arg(args, unsigned int), out + strlen(out), 10);
             } else if (*fmt == 'p') {
                 const char hex_prefix[3] = "0x";
                 strcat(out, hex_prefix);
-                utoa(va_arg(args, int), out + strlen(out), 16);
-            } else if (*fmt == 'llu') {
+                // Handle pointer as unsigned long
+                unsigned long ptr_val = (unsigned long)va_arg(args, void*);
+                utoa(ptr_val, out + strlen(out), 16);
+            } else if (strncmp(fmt, "llu", 3) == 0) {
                 unsigned long long val = (unsigned long long)va_arg(args, unsigned long long);
                 if (val == 0) {
                     strcat(out, "0");
@@ -98,6 +101,7 @@ void format_to_str(char* out, const char* fmt, va_list args) {
                     ulltoa(buf, sizeof(buf), val);
                     strcat(out, buf);
                 }
+                fmt += 2;
             }
         }
     }
