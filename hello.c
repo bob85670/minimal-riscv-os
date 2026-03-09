@@ -45,7 +45,7 @@ void format_to_str(char* out, const char* fmt, va_list args) {
             strncat(out, fmt, 1);
         } else {
             fmt++;
-            
+
             if (*fmt == 's') 
             {
                 strcat(out, va_arg(args, char*));
@@ -139,7 +139,7 @@ int printf(const char* format, ...) {
 /* Uncomment line46 - line57
  * when implementing dynamic memory allocation
  */
-/*
+
 extern char __heap_start, __heap_end;
 static char* brk = &__heap_start;
 char* _sbrk(int size) {
@@ -152,7 +152,36 @@ char* _sbrk(int size) {
     brk += size;
     return old_brk;
 }
-*/
+
+void* malloc(size_t size)
+{
+
+}
+
+void* free(void* ptr)
+{
+    
+}
+
+int printf2(const char* format, ...) {
+    va_list args;
+    va_start(args, format);
+
+    va_list args_copy;
+    va_copy(args_copy, args);
+    unsigned int len = format_to_str_len(format, args_copy);
+    char *buf = malloc(len);
+
+    format_to_str(buf, format, args);
+    va_end(args);
+    terminal_write(buf, strlen(buf));
+
+    va_end(args_copy);
+    free(buf);
+
+    return 0;
+}
+
 
 int main() {
     char* msg = "Hello, World!\n\r";
