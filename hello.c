@@ -40,7 +40,7 @@ void ulltoa(char* dst, size_t len, unsigned long long x)
 void format_to_str(char* out, const char* fmt, va_list args) {
     out[0] = '\0';  // Fixed: initialize properly
 
-    for(; *fmt != '\0'; fmt++) {
+    for (; *fmt != '\0'; fmt++) {
         if (*fmt != '%') {
             strncat(out, fmt, 1);
         } else {
@@ -153,31 +153,39 @@ char* _sbrk(int size) {
     return old_brk;
 }
 
-void* malloc(size_t size)
+void* custom_malloc(size_t size)
 {
 
 }
 
-void* free(void* ptr)
+void* custom_free(void* ptr)
 {
-    
+
 }
 
-int printf2(const char* format, ...) {
+unsigned int format_to_str_len(const char* fmt, va_list args)
+{
+    unsigned int len = 1;
+
+
+    return len;
+}
+
+int custom_printf(const char* format, ...) {
     va_list args;
     va_start(args, format);
 
     va_list args_copy;
     va_copy(args_copy, args);
     unsigned int len = format_to_str_len(format, args_copy);
-    char *buf = malloc(len);
+    char *buf = custom_malloc(len);
 
     format_to_str(buf, format, args);
     va_end(args);
     terminal_write(buf, strlen(buf));
 
     va_end(args_copy);
-    free(buf);
+    custom_free(buf);
 
     return 0;
 }
