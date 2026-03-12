@@ -1,8 +1,12 @@
 /* Student's code goes here (Cooperative Threads). */
+typedef void (*thread_start_func_t)(void*);
+
 enum thread_status {
 	THREAD_RUNNING,
     /* Define the various possible status of a thread. */
-
+    THREAD_READY,
+    THREAD_BLOCKED,
+    THREAD_TERMINATED
 };
 
 struct thread {
@@ -10,7 +14,8 @@ struct thread {
     void* sp;
     enum thread_status status;
     /* Define the data structure for thread control block. */
-
+    thread_start_func_t start_func;
+    void* start_arg;
 };
 
 struct cv {

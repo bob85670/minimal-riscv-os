@@ -11,6 +11,8 @@
 
 /* Student's code goes here (Cooperative Threads). */
 /* Define the TCB and helper functions (if needed) for multi-threading. */
+int current_idx;
+struct thread TCB[32];
 
 /* Student's code ends here. */
 
