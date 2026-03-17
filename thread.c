@@ -16,21 +16,37 @@ struct thread TCB[32];
 
 /* Student's code ends here. */
 
-void thread_init() {
+void ctx_entry() {
     /* Student's code goes here (Cooperative Threads). */
-
+    struct thread *current_thread = &TCB[current_idx];
+    current_thread->status = THREAD_RUNNING;
+    current_thread->start_func(current_thread->start_arg);
+    thread_exit();
     /* Student's code ends here. */
 }
 
-void ctx_entry() {
+void thread_init() {
     /* Student's code goes here (Cooperative Threads). */
+    for (int i = 0; i < 32; i++) {
+        TCB[i].id = i;
+        TCB[i].sp = NULL;
+        TCB[i].status = THREAD_TERMINATED;
+        TCB[i].start_func = NULL;
+        TCB[i].start_arg = NULL;
+    }
 
+    current_idx = 0;
+    TCB[current_idx].id = 0;
+    TCB[current_idx].status = THREAD_RUNNING;
+    TCB[current_idx].start_func = NULL;
+    TCB[current_idx].start_arg = NULL;
     /* Student's code ends here. */
 }
 
 void thread_create(void (*entry)(void *arg), void *arg) {
     /* Student's code goes here (Cooperative Threads). */
-
+    char* child_stack = malloc(STACK_SIZE);
+    ctx_start(&TCB[current_idx].sp, child_stack + STACK_SIZE);
     /* Student's code ends here. */
 }
 
