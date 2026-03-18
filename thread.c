@@ -45,8 +45,26 @@ void thread_init() {
 
 void thread_create(void (*entry)(void *arg), void *arg) {
     /* Student's code goes here (Cooperative Threads). */
+    int new_idx = -1;
+    for (int i = 0; i < 32; i++) {
+        if (TCB[i].status == THREAD_TERMINATED) {
+            new_idx = i;
+            break;
+        }
+    }
+
+    if (new_idx == -1) return;
+
     char* child_stack = malloc(STACK_SIZE);
-    ctx_start(&TCB[current_idx].sp, child_stack + STACK_SIZE);
+    TCB[new_idx].id = new_idx;
+    TCB[new_idx].status = THREAD_READY;
+    TCB[new_idx].start_func = entry;
+    TCB[new_idx].start_arg = arg;
+
+    void* sp = child_stack + STACK_SIZE;
+    ctx_start(&TCB[current_idx].sp, sp);
+
+    cleanup_terminated_threads();
     /* Student's code ends here. */
 }
 
