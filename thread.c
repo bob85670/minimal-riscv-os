@@ -14,6 +14,21 @@
 int current_idx;
 struct thread TCB[32];
 
+static int find_next_ready_thread() {
+    int start = (current_idx + 1) % 32;
+    for (int i = 0; i < 32; i++) {
+        int idx = (start + i) % 32;
+        if (TCB[idx].status == THREAD_RUNNING) {
+            return idx;
+        }
+    }
+    return -1;
+}
+
+static void cleanup_terminated_threads() {
+
+}
+
 /* Student's code ends here. */
 
 void ctx_entry() {
@@ -53,8 +68,9 @@ void thread_create(void (*entry)(void *arg), void *arg) {
         }
     }
 
-    if (new_idx == -1) 
+    if (new_idx == -1) {
         return;
+    }
 
     char* child_stack = malloc(STACK_SIZE);
     TCB[new_idx].id = new_idx;
@@ -72,8 +88,9 @@ void thread_create(void (*entry)(void *arg), void *arg) {
 void thread_yield() {
     /* Student's code goes here (Cooperative Threads). */
     int next_idx = find_next_ready_thread();
-    if (next_idx == -1) 
+    if (next_idx == -1) {
         return;
+    }
 
     if (TCB[current_idx].status == THREAD_RUNNING) {
         TCB[current_idx].status = THREAD_READY;
@@ -94,15 +111,16 @@ void thread_exit() {
     TCB[current_idx].status = THREAD_TERMINATED;
 
     int next_idx = find_next_ready_thread();
-    if (next_idx == -1) 
+    if (next_idx == -1) {
         _end();
+    }
 
     int prev_idx = current_idx;
     current_idx = next_idx;
     TCB[current_idx].status = THREAD_RUNNING;
 
     ctx_switch(&TCB[prev_idx].sp, TCB[current_idx].sp);
-    // Never return here
+    // Should never return here
     /* Student's code ends here. */
 }
 
