@@ -16,6 +16,7 @@ struct thread {
     /* Define the data structure for thread control block. */
     thread_start_func_t start_func;
     void* start_arg;
+    char* stack_base;
 };
 
 struct cv {

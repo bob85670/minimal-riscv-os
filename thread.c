@@ -26,7 +26,13 @@ static int find_next_ready_thread() {
 }
 
 static void cleanup_terminated_threads() {
-
+    for (int i = 0; i < 32; i++) {
+        if (i == current_idx && TCB[i].status == THREAD_TERMINATED && TCB[i].stack_base != NULL) {
+            free(TCB[i].stack_base);
+            TCB[i].stack_base = NULL;
+            TCB[i].sp = NULL;
+        }
+    }
 }
 
 /* Student's code ends here. */
@@ -48,13 +54,15 @@ void thread_init() {
         TCB[i].status = THREAD_TERMINATED;
         TCB[i].start_func = NULL;
         TCB[i].start_arg = NULL;
+        TCB[i].stack_base = NULL;
     }
 
     current_idx = 0;
-    TCB[current_idx].id = 0;
-    TCB[current_idx].status = THREAD_RUNNING;
-    TCB[current_idx].start_func = NULL;
-    TCB[current_idx].start_arg = NULL;
+    TCB[0].id = 0;
+    TCB[0].status = THREAD_RUNNING;
+    TCB[0].start_func = NULL;
+    TCB[0].start_arg = NULL;
+    TCB[0].stack_base = NULL; // main stack is not allocated by malloc
     /* Student's code ends here. */
 }
 
@@ -77,6 +85,7 @@ void thread_create(void (*entry)(void *arg), void *arg) {
     TCB[new_idx].status = THREAD_READY;
     TCB[new_idx].start_func = entry;
     TCB[new_idx].start_arg = arg;
+    TCB[new_idx].stack_base = child_stack;
 
     void* sp = child_stack + STACK_SIZE;
     ctx_start(&TCB[current_idx].sp, sp);
