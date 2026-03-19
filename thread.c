@@ -53,7 +53,8 @@ void thread_create(void (*entry)(void *arg), void *arg) {
         }
     }
 
-    if (new_idx == -1) return;
+    if (new_idx == -1) 
+        return;
 
     char* child_stack = malloc(STACK_SIZE);
     TCB[new_idx].id = new_idx;
@@ -70,13 +71,38 @@ void thread_create(void (*entry)(void *arg), void *arg) {
 
 void thread_yield() {
     /* Student's code goes here (Cooperative Threads). */
+    int next_idx = find_next_ready_thread();
+    if (next_idx == -1) 
+        return;
 
+    if (TCB[current_idx].status == THREAD_RUNNING) {
+        TCB[current_idx].status = THREAD_READY;
+    }
+
+    int prev_idx = current_idx;
+    current_idx = next_idx;
+    TCB[current_idx].status = THREAD_RUNNING;
+
+    ctx_switch(&TCB[prev_idx].sp, TCB[current_idx].sp);
+
+    cleanup_terminated_threads(); // When we return here, we're back in the original thread
     /* Student's code ends here. */
 }
 
 void thread_exit() {
     /* Student's code goes here (Cooperative Threads). */
+    TCB[current_idx].status = THREAD_TERMINATED;
 
+    int next_idx = find_next_ready_thread();
+    if (next_idx == -1) 
+        _end();
+
+    int prev_idx = current_idx;
+    current_idx = next_idx;
+    TCB[current_idx].status = THREAD_RUNNING;
+
+    ctx_switch(&TCB[prev_idx].sp, TCB[current_idx].sp);
+    // Never return here
     /* Student's code ends here. */
 }
 
