@@ -10,24 +10,37 @@
 #include "thread.h"
 
 /* Student's code goes here (Cooperative Threads). */
-/* Define the TCB and helper functions (if needed) for multi-threading. */
+/* Define the TCB and helper functions (if needed) for multi-threading; and 
+   define the Ready linked list and helper functions for conditional variables. */
 int current_idx;
 struct thread TCB[32];
+SLIST_HEAD(ready_queue, thread) ready_queue;
+
+static void add_to_ready_queue(struct thread *t) {
+    t->status = THREAD_READY;
+    SLIST_INSERT_HEAD(&ready_queue, t, next);
+}
+
+static struct thread* remove_from_ready_queue() {
+    struct thread *t = SLIST_FIRST(&ready_queue);
+    if (t) {
+        SLIST_REMOVE_HEAD(&ready_queue, next);
+        t->status = THREAD_RUNNING;
+    }
+    return t;
+}
 
 static int find_next_ready_thread() {
-    int start = (current_idx + 1) % 32;
-    for (int i = 0; i < 32; i++) {
-        int idx = (start + i) % 32;
-        if (TCB[idx].status == THREAD_RUNNING) {
-            return idx;
-        }
+    struct thread *next_thread = remove_from_ready_queue();
+    if (next_thread) {
+        return next_thread->id;
     }
     return -1;
 }
 
 static void cleanup_terminated_threads() {
     for (int i = 0; i < 32; i++) {
-        if (i == current_idx && TCB[i].status == THREAD_TERMINATED && TCB[i].stack_base != NULL) {
+        if (TCB[i].status == THREAD_TERMINATED && TCB[i].stack_base != NULL) {
             free(TCB[i].stack_base);
             TCB[i].stack_base = NULL;
             TCB[i].sp = NULL;
@@ -133,11 +146,6 @@ void thread_exit() {
     /* Student's code ends here. */
 }
 
-/* Student's code goes here (Cooperative Threads). */
-/* Define helper functions (if needed) for conditional variables. */
-
-/* Student's code ends here. */
-
 void cv_init(struct cv *condition) {
     /* Student's code goes here (Cooperative Threads). */
 
@@ -169,8 +177,10 @@ void produce(void* arg) {
 
         /* Student's code goes here (Cooperative Threads). */
         /* Print out the producer ID with the arg pointer. */
-
+        int* id = (int*)arg;
+        printf("Producer %d producing item\n\r", *id);
         /* Student's code ends here. */
+
         buffer[tail] = arg;
         tail = (tail + 1) % BUF_SIZE;
         count += 1;
@@ -185,8 +195,10 @@ void consume(void *arg) {
 
         /* Student's code goes here (Cooperative Threads). */
         /* Print out the consumer ID with the arg pointer. */
-
+        int* id = (int*)arg;
+        printf("Consumer %d consuming item\n\r", *id);
         /* Student's code ends here. */
+
         void* result = buffer[head];
         head = (head + 1) % BUF_SIZE;
         count -= 1;

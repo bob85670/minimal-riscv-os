@@ -17,11 +17,12 @@ struct thread {
     thread_start_func_t start_func;
     void* start_arg;
     char* stack_base;
+    SLIST_ENTRY(thread) next; // Next pointer for the singly-linked list.
 };
 
 struct cv {
     /* Define the data structure for conditional variables. */
-
+    SLIST_HEAD(wait_queue, thread) wait_queue; // Head of the singly-linked list.
 };
 /* Student's code ends here. */
 
