@@ -61,6 +61,8 @@ void ctx_entry() {
 
 void thread_init() {
     /* Student's code goes here (Cooperative Threads). */
+    SLIST_INIT(&ready_queue);
+
     for (int i = 0; i < 32; i++) {
         TCB[i].id = i;
         TCB[i].sp = NULL;
@@ -109,13 +111,20 @@ void thread_create(void (*entry)(void *arg), void *arg) {
 
 void thread_yield() {
     /* Student's code goes here (Cooperative Threads). */
-    int next_idx = find_next_ready_thread();
-    if (next_idx == -1) {
-        return;
+    if (TCB[current_idx].status == THREAD_RUNNING) {
+        add_to_ready_queue(&TCB[current_idx]);
     }
 
-    if (TCB[current_idx].status == THREAD_RUNNING) {
-        TCB[current_idx].status = THREAD_READY;
+    int next_idx = find_next_ready_thread();
+    if (next_idx == -1) {
+        if (TCB[current_idx].status == THREAD_READY) {
+            // If we just added current thread to ready queue and no other threads,
+            // we should continue running it
+            struct thread *current = &TCB[current_idx];
+            SLIST_REMOVE(&ready_queue, current, thread, next);
+            current->status = THREAD_RUNNING;
+        }
+        return;
     }
 
     int prev_idx = current_idx;
