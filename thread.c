@@ -103,13 +103,18 @@ void thread_create(void (*entry)(void *arg), void *arg) {
     TCB[new_idx].stack_base = child_stack;
 
     void* sp = child_stack + STACK_SIZE;
-    ctx_start(&TCB[current_idx].sp, sp);
+    int parent_idx = current_idx;
+    add_to_ready_queue(&TCB[parent_idx]);
+    current_idx = new_idx;
+    ctx_start(&TCB[parent_idx].sp, sp);
+    current_idx = parent_idx;
 
     cleanup_terminated_threads();
     /* Student's code ends here. */
 }
 
 void thread_yield() {
+    printf("Thread %d yielding\n", current_idx);
     /* Student's code goes here (Cooperative Threads). */
     if (TCB[current_idx].status == THREAD_RUNNING) {
         add_to_ready_queue(&TCB[current_idx]);
@@ -162,6 +167,7 @@ void cv_init(struct cv *condition) {
 }
 
 void cv_wait(struct cv *condition) {
+    printf("Thread %d waiting on condition\n", current_idx);
     /* Student's code goes here (Cooperative Threads). */
     struct thread *current_thread = &TCB[current_idx];
 
@@ -182,6 +188,7 @@ void cv_wait(struct cv *condition) {
 }
 
 void cv_signal(struct cv *condition) {
+    printf("Thread %d signaling condition\n", current_idx);
     /* Student's code goes here (Cooperative Threads). */
     struct thread *waiting_thread = SLIST_FIRST(&condition->wait_queue);
     if (waiting_thread) {
@@ -236,6 +243,8 @@ void consume(void *arg) {
 int main() {
     printf("Hello\n\r");
     thread_init();
+    cv_init(&nonempty);
+    cv_init(&nonfull);
 
     int ID[500];
     for (int i = 0; i < 500; i++) ID[i] = i;
@@ -255,4 +264,5 @@ int main() {
      * If the main thread is not the last, thread_exit() will switch the context
      * to another thread. Later, when all the threads have called thread_exit(),
      * the last one calling it should then call _end() within thread_exit(). */
+    return 0;
 }
