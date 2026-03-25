@@ -157,19 +157,37 @@ void thread_exit() {
 
 void cv_init(struct cv *condition) {
     /* Student's code goes here (Cooperative Threads). */
-
+    SLIST_INIT(&condition->wait_queue);
     /* Student's code ends here. */
 }
 
 void cv_wait(struct cv *condition) {
     /* Student's code goes here (Cooperative Threads). */
+    struct thread *current_thread = &TCB[current_idx];
 
+    SLIST_INSERT_HEAD(&condition->wait_queue, current_thread, next);
+    current_thread->status = THREAD_BLOCKED;
+
+    int next_idx = find_next_ready_thread();
+    if (next_idx == -1) {
+        return; // no ready thread, we're stuck
+    }
+
+    int prev_idx = current_idx;
+    current_idx = next_idx;
+    TCB[current_idx].status = THREAD_RUNNING;
+    
+    ctx_switch(&TCB[prev_idx].sp, TCB[current_idx].sp);
     /* Student's code ends here. */
 }
 
 void cv_signal(struct cv *condition) {
     /* Student's code goes here (Cooperative Threads). */
-
+    struct thread *waiting_thread = SLIST_FIRST(&condition->wait_queue);
+    if (waiting_thread) {
+        SLIST_REMOVE_HEAD(&condition->wait_queue, next);
+        add_to_ready_queue(waiting_thread);
+    }
     /* Student's code ends here. */
 }
 
@@ -216,6 +234,7 @@ void consume(void *arg) {
 }
 
 int main() {
+    printf("Hello\n\r");
     thread_init();
 
     int ID[500];
