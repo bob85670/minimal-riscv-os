@@ -71,15 +71,9 @@ static void excp_entry(uint id) {
 static void intr_entry(uint id) {
     /* Student's code goes here (Preemptive Scheduler). */
     /* Update the process lifecycle statistics. */
-    if (curr_status == PROC_RUNNING && curr_pid >= GPID_USER_START) {
+    if (id == INTR_ID_TIMER && curr_status == PROC_RUNNING &&
+        curr_pid >= GPID_USER_START)
         proc_set[curr_proc_idx].timer_interrupts++;
-        
-        if (proc_set[curr_proc_idx].last_schedule_time != 0) {
-            ulonglong current_time = mtime_get();
-            ulonglong runtime = current_time - proc_set[curr_proc_idx].last_schedule_time;
-            proc_set[curr_proc_idx].total_cpu_time += runtime;
-        }
-    }
 
     /* Student's code ends here. */
 
@@ -103,7 +97,8 @@ static void proc_yield() {
      * Measure and record lifecycle statistics for the *current* process. */
     if (curr_status == PROC_RUNNING) {
         /* Update CPU time for the current process before it's preempted */
-        if (proc_set[curr_proc_idx].last_schedule_time != 0) {
+        if (curr_pid >= GPID_USER_START &&
+            proc_set[curr_proc_idx].last_schedule_time != 0) {
             ulonglong current_time = mtime_get();
             ulonglong runtime = current_time - proc_set[curr_proc_idx].last_schedule_time;
             proc_set[curr_proc_idx].total_cpu_time += runtime;
@@ -163,6 +158,8 @@ static void proc_yield() {
         proc_set[curr_proc_idx].mepc = APPS_ENTRY;
     }
     proc_set_running(curr_pid);
+    if (curr_pid >= GPID_USER_START)
+        proc_set[curr_proc_idx].last_schedule_time = mtime_get();
     earth->timer_reset(core_in_kernel);
 }
 

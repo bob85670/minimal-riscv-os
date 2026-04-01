@@ -55,7 +55,10 @@ void proc_free(int pid) {
             if (proc_set[i].pid == pid && proc_set[i].status != PROC_UNUSED) {
                 ulonglong current_time = mtime_get();
                 ulonglong turnaround_time = current_time - proc_set[i].creation_time;
-                ulonglong response_time = proc_set[i].first_schedule_time - proc_set[i].creation_time;
+                ulonglong response_time =
+                    (proc_set[i].first_schedule_time == 0)
+                        ? 0
+                        : (proc_set[i].first_schedule_time - proc_set[i].creation_time);
                 
                 /* Convert to milliseconds (10^-7 seconds to ms: divide by 10000) */
                 int turnaround_ms = turnaround_time / 10000;
@@ -80,7 +83,10 @@ void proc_free(int pid) {
                 
                 ulonglong current_time = mtime_get();
                 ulonglong turnaround_time = current_time - proc_set[i].creation_time;
-                ulonglong response_time = proc_set[i].first_schedule_time - proc_set[i].creation_time;
+                ulonglong response_time =
+                    (proc_set[i].first_schedule_time == 0)
+                        ? 0
+                        : (proc_set[i].first_schedule_time - proc_set[i].creation_time);
                 
                 int turnaround_ms = turnaround_time / 10000;
                 int response_ms = response_time / 10000;
