@@ -31,6 +31,12 @@ int proc_alloc() {
             /* Student's code goes here (Preemptive Scheduler | System Call). */
 
             /* Initialization of lifecycle statistics, MLFQ or process sleep. */
+            proc_set[i].creation_time = mtime_get();
+            proc_set[i].first_schedule_time = 0;
+            proc_set[i].last_schedule_time = 0;
+            proc_set[i].total_cpu_time = 0;
+            proc_set[i].timer_interrupts = 0;
+            proc_set[i].scheduled_before = 0;
 
             /* Student's code ends here. */
             return curr_pid;
@@ -44,16 +50,51 @@ void proc_free(int pid) {
 
     /* Print the lifecycle statistics of the terminated process or processes. */
     if (pid != GPID_ALL) {
-        earth->mmu_free(pid);
-        proc_set_status(pid, PROC_UNUSED);
+        /* Find and free a single process */
+        for (uint i = 0; i < MAX_NPROCESS; i++) {
+            if (proc_set[i].pid == pid && proc_set[i].status != PROC_UNUSED) {
+                ulonglong current_time = mtime_get();
+                ulonglong turnaround_time = current_time - proc_set[i].creation_time;
+                ulonglong response_time = proc_set[i].first_schedule_time - proc_set[i].creation_time;
+                
+                /* Convert to milliseconds (10^-7 seconds to ms: divide by 10000) */
+                int turnaround_ms = turnaround_time / 10000;
+                int response_ms = response_time / 10000;
+                int cpu_ms = proc_set[i].total_cpu_time / 10000;
+                
+                INFO("process %d terminated after %d timer interrupts, "
+                     "turnaround time: %dms, response time: %dms, CPU time: %dms",
+                     pid, proc_set[i].timer_interrupts, 
+                     turnaround_ms, response_ms, cpu_ms);
+                
+                earth->mmu_free(pid);
+                proc_set[i].status = PROC_UNUSED;
+                break;
+            }
+        }
     } else {
-        /* Free all user processes. */
-        for (uint i = 0; i < MAX_NPROCESS; i++)
+        /* Free all user processes */
+        for (uint i = 0; i < MAX_NPROCESS; i++) {
             if (proc_set[i].pid >= GPID_USER_START &&
                 proc_set[i].status != PROC_UNUSED) {
+                
+                ulonglong current_time = mtime_get();
+                ulonglong turnaround_time = current_time - proc_set[i].creation_time;
+                ulonglong response_time = proc_set[i].first_schedule_time - proc_set[i].creation_time;
+                
+                int turnaround_ms = turnaround_time / 10000;
+                int response_ms = response_time / 10000;
+                int cpu_ms = proc_set[i].total_cpu_time / 10000;
+                
+                INFO("process %d terminated after %d timer interrupts, "
+                     "turnaround time: %dms, response time: %dms, CPU time: %dms",
+                     proc_set[i].pid, proc_set[i].timer_interrupts,
+                     turnaround_ms, response_ms, cpu_ms);
+                
                 earth->mmu_free(proc_set[i].pid);
                 proc_set[i].status = PROC_UNUSED;
             }
+        }
     }
     /* Student's code ends here. */
 }

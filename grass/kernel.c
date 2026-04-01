@@ -70,8 +70,16 @@ static void excp_entry(uint id) {
 
 static void intr_entry(uint id) {
     /* Student's code goes here (Preemptive Scheduler). */
-
     /* Update the process lifecycle statistics. */
+    if (curr_status == PROC_RUNNING && curr_pid >= GPID_USER_START) {
+        proc_set[curr_proc_idx].timer_interrupts++;
+        
+        if (proc_set[curr_proc_idx].last_schedule_time != 0) {
+            ulonglong current_time = mtime_get();
+            ulonglong runtime = current_time - proc_set[curr_proc_idx].last_schedule_time;
+            proc_set[curr_proc_idx].total_cpu_time += runtime;
+        }
+    }
 
     /* Student's code ends here. */
 
@@ -89,16 +97,27 @@ static void intr_entry(uint id) {
 }
 
 static void proc_yield() {
-    if (curr_status == PROC_RUNNING) proc_set_runnable(curr_pid);
-
     /* Student's code goes here (Multiple Projects). */
 
     /* [Preemptive Scheduler]
-     * Measure and record lifecycle statistics for the *current* process.
-     * Modify the loop below to find the next process to schedule with MLFQ.
-     * [System Call & Protection]
+     * Measure and record lifecycle statistics for the *current* process. */
+    if (curr_status == PROC_RUNNING) {
+        /* Update CPU time for the current process before it's preempted */
+        if (proc_set[curr_proc_idx].last_schedule_time != 0) {
+            ulonglong current_time = mtime_get();
+            ulonglong runtime = current_time - proc_set[curr_proc_idx].last_schedule_time;
+            proc_set[curr_proc_idx].total_cpu_time += runtime;
+        }
+        proc_set[curr_proc_idx].last_schedule_time = 0;
+        proc_set_runnable(curr_pid);
+    }
+
+    /* [System Call & Protection]
      * Do not schedule a process that should still be sleeping at this time. */
 
+
+    /* [Preemptive Scheduler]
+     * Modify the loop below to find the next process to schedule with MLFQ. */
     int next_idx = MAX_NPROCESS;
     for (uint i = 1; i <= MAX_NPROCESS; i++) {
         struct process* p = &proc_set[(curr_proc_idx + i) % MAX_NPROCESS];
@@ -112,8 +131,14 @@ static void proc_yield() {
 
     if (next_idx < MAX_NPROCESS) {
         /* [Preemptive Scheduler]
-         * Measure and record lifecycle statistics for the *next* process.
-         * [System Call & Protection | Multicore & Locks]
+         * Measure and record lifecycle statistics for the *next* process. */
+        struct process* next_proc = &proc_set[next_idx];
+        if (!next_proc->scheduled_before && next_proc->status == PROC_READY) {
+            next_proc->first_schedule_time = mtime_get();
+            next_proc->scheduled_before = 1;
+        }
+
+        /* [System Call & Protection | Multicore & Locks]
          * Modify mstatus.MPP to enter machine or user mode after mret. */
 
     } else {
