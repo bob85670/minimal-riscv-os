@@ -11,6 +11,8 @@ void terminal_write(const char *str, int len) {
 #include <stdlib.h>  // for itoa() and utoa()
 #include <string.h>  // for strlen() and strcat()
 #include <stdarg.h>  // for va_start(), va_end(), va_arg() and va_copy()
+#include <stddef.h>  // for size_t
+#include <stdint.h>  // for uintptr_t, uint8_t
 
 void ulltoa(char* dst, size_t len, unsigned long long x) 
 {
@@ -153,14 +155,118 @@ char* _sbrk(int size) {
     return old_brk;
 }
 
-void* custom_malloc(size_t size)
-{
+// ---- Custom allocator hooks (edit these two) ----
+//
+// `custom_malloc()` / `custom_free()` are stable entrypoints used by the rest
+// of this file. Implement your allocator in `custom_malloc_impl()` and
+// `custom_free_impl()` below. The default implementation is a bump allocator
+// (free is a no-op) so the program still runs before you implement real free.
 
+#ifndef RUN_ALLOCATOR_TESTS
+#define RUN_ALLOCATOR_TESTS 1
+#endif
+
+#ifndef CUSTOM_ALLOCATOR_HAS_REAL_FREE
+#define CUSTOM_ALLOCATOR_HAS_REAL_FREE 0
+#endif
+
+static uintptr_t align_up_uintptr(uintptr_t x, size_t align) {
+    return (x + (uintptr_t)(align - 1)) & ~(uintptr_t)(align - 1);
 }
 
-void* custom_free(void* ptr)
-{
+static void* default_bump_malloc(size_t size) {
+    if (size == 0) return NULL;
 
+    const size_t align = 8;
+    size_t need = (size_t)(align_up_uintptr((uintptr_t)size, align));
+    char* p = _sbrk((int)need);
+    if (!p) return NULL;
+    return (void*)p;
+}
+
+static void default_bump_free(void* ptr) {
+    (void)ptr;
+}
+
+void* custom_malloc_impl(size_t size) {
+    // IMPLEMENT HERE: replace with your allocator.
+    return default_bump_malloc(size);
+}
+
+void custom_free_impl(void* ptr) {
+    // IMPLEMENT HERE: replace with your allocator.
+    default_bump_free(ptr);
+}
+
+void* custom_malloc(size_t size) {
+    return custom_malloc_impl(size);
+}
+
+void custom_free(void* ptr) {
+    custom_free_impl(ptr);
+}
+
+static int heap_contains(const void* p) {
+    uintptr_t x = (uintptr_t)p;
+    return x >= (uintptr_t)&__heap_start && x < (uintptr_t)&__heap_end;
+}
+
+static int alloc_assert(int cond, const char* msg) {
+    if (cond) return 1;
+    printf("[alloc-test] FAIL: %s\n\r", (char*)msg);
+    return 0;
+}
+
+static void allocator_selftest(void) {
+    int ok = 1;
+
+    printf("[alloc-test] heap: %p .. %p\n\r", &__heap_start, &__heap_end);
+
+    {
+        void* a = custom_malloc(16);
+        void* b = custom_malloc(32);
+        void* c = custom_malloc(128);
+        ok &= alloc_assert(a != NULL && b != NULL && c != NULL, "smoke alloc != NULL");
+        ok &= alloc_assert(a != b && b != c && a != c, "distinct pointers");
+        ok &= alloc_assert(heap_contains(a) && heap_contains(b) && heap_contains(c), "pointers within heap");
+        ok &= alloc_assert((((uintptr_t)a & 7u) == 0u) && (((uintptr_t)b & 7u) == 0u) && (((uintptr_t)c & 7u) == 0u),
+                           "8-byte alignment");
+    }
+
+    {
+        uint8_t* p = (uint8_t*)custom_malloc(256);
+        ok &= alloc_assert(p != NULL, "alloc 256");
+        if (p) {
+            for (size_t i = 0; i < 256; i++) p[i] = (uint8_t)(i ^ 0xA5u);
+            for (size_t i = 0; i < 256; i++) ok &= alloc_assert(p[i] == (uint8_t)(i ^ 0xA5u), "read/write integrity");
+        }
+    }
+
+#if CUSTOM_ALLOCATOR_HAS_REAL_FREE
+    {
+        uintptr_t heap_bytes = (uintptr_t)&__heap_end - (uintptr_t)&__heap_start;
+        size_t block = 2048;
+        size_t iters = (size_t)(heap_bytes / (uintptr_t)block) + 64;
+
+        for (size_t i = 0; i < iters; i++) {
+            uint8_t* p = (uint8_t*)custom_malloc(block);
+            if (!p) {
+                ok = 0;
+                printf("[alloc-test] FAIL: free/reuse loop ran out at iter=%u\n\r", (unsigned)i);
+                break;
+            }
+            p[0] = 0x11;
+            p[block - 1] = 0x22;
+            custom_free(p);
+        }
+
+        if (ok) printf("[alloc-test] free/reuse loop OK (iters=%u, block=%u)\n\r",
+                       (unsigned)iters, (unsigned)block);
+    }
+#endif
+
+    if (ok) printf("[alloc-test] PASS\n\r");
+    else printf("[alloc-test] FAIL (see above)\n\r");
 }
 
 unsigned int format_to_str_len(const char* fmt, va_list args)
@@ -205,6 +311,10 @@ int main() {
     printf("%u is the maximum of unsigned int\n\r", (unsigned int)0xFFFFFFFF);
     printf("%p is the hexadecimal address of the hello-world string\n\r", msg);
     printf("%llu is the maximum of unsigned long long\n\r", 0xFFFFFFFFFFFFFFFFULL);
+
+#if RUN_ALLOCATOR_TESTS
+    allocator_selftest();
+#endif
 
     return 0;
 }
