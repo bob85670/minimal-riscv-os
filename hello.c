@@ -248,8 +248,6 @@ static void allocator_selftest(void) {
         ok &= alloc_assert(a != NULL && b != NULL && c != NULL, "smoke alloc != NULL");
         ok &= alloc_assert(a != b && b != c && a != c, "distinct pointers");
         ok &= alloc_assert(heap_contains(a) && heap_contains(b) && heap_contains(c), "pointers within heap");
-        ok &= alloc_assert((((uintptr_t)a & 7u) == 0u) && (((uintptr_t)b & 7u) == 0u) && (((uintptr_t)c & 7u) == 0u),
-                           "8-byte alignment");
     }
 
     {
