@@ -158,8 +158,8 @@ char* _sbrk(int size) {
 // ---- Custom allocator hooks (edit these two) ----
 //
 // `custom_malloc()` / `custom_free()` are stable entrypoints used by the rest
-// of this file. Implement your allocator in `custom_malloc_impl()` and
-// `custom_free_impl()` below. The default implementation is a bump allocator
+// of this file. Implement your allocator in `custom_malloc()` and
+// `custom_free()` below. The default implementation is a bump allocator
 // (free is a no-op) so the program still runs before you implement real free.
 
 #ifndef RUN_ALLOCATOR_TESTS
@@ -170,41 +170,35 @@ char* _sbrk(int size) {
 #define CUSTOM_ALLOCATOR_HAS_REAL_FREE 0
 #endif
 
-static uintptr_t align_up_uintptr(uintptr_t x, size_t align) {
-    return (x + (uintptr_t)(align - 1)) & ~(uintptr_t)(align - 1);
-}
+typedef struct Block {
+    size_t size;
+    int free; // 1 if available, 0 if occupied
+    struct Block* next;
+} Block;
 
-static void* default_bump_malloc(size_t size) {
-    if (size == 0) return NULL;
+#define BLOCK_SIZE sizeof(Block)
 
-    const size_t align = 8;
-    size_t need = (size_t)(align_up_uintptr((uintptr_t)size, align));
-    char* p = _sbrk((int)need);
-    if (!p) return NULL;
-    return (void*)p;
-}
+Block* free_list_head = NULL;
 
-static void default_bump_free(void* ptr) {
-    (void)ptr;
-}
-
-void* custom_malloc_impl(size_t size) {
-    // IMPLEMENT HERE: replace with your allocator.
-    return default_bump_malloc(size);
-}
-
-void custom_free_impl(void* ptr) {
-    // IMPLEMENT HERE: replace with your allocator.
-    default_bump_free(ptr);
+Block* find_free_block(size_t size) {
+    Block* current = free_list_head;
+    while (current && !(current->free && current->size >= size)) {
+        current = current->next;
+    }
+    return current;
 }
 
 void* custom_malloc(size_t size) {
-    return custom_malloc_impl(size);
+
 }
 
 void custom_free(void* ptr) {
-    custom_free_impl(ptr);
+
 }
+
+/* 
+ * Below are the tests for custom_malloc and custom_free
+ */
 
 static int heap_contains(const void* p) {
     uintptr_t x = (uintptr_t)p;
@@ -268,34 +262,6 @@ static void allocator_selftest(void) {
     if (ok) printf("[alloc-test] PASS\n\r");
     else printf("[alloc-test] FAIL (see above)\n\r");
 }
-
-unsigned int format_to_str_len(const char* fmt, va_list args)
-{
-    unsigned int len = 1;
-
-
-    return len;
-}
-
-int custom_printf(const char* format, ...) {
-    va_list args;
-    va_start(args, format);
-
-    va_list args_copy;
-    va_copy(args_copy, args);
-    unsigned int len = format_to_str_len(format, args_copy);
-    char *buf = custom_malloc(len);
-
-    format_to_str(buf, format, args);
-    va_end(args);
-    terminal_write(buf, strlen(buf));
-
-    va_end(args_copy);
-    custom_free(buf);
-
-    return 0;
-}
-
 
 int main() {
     char* msg = "Hello, World!\n\r";
