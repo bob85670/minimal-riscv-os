@@ -155,12 +155,11 @@ char* _sbrk(int size) {
     return old_brk;
 }
 
-// ---- Custom allocator hooks (edit these two) ----
+// ---- Custom allocator hooks----
 //
 // `custom_malloc()` / `custom_free()` are stable entrypoints used by the rest
 // of this file. Implement your allocator in `custom_malloc()` and
-// `custom_free()` below. The default implementation is a bump allocator
-// (free is a no-op) so the program still runs before you implement real free.
+// `custom_free()` below. 
 
 #ifndef RUN_ALLOCATOR_TESTS
 #define RUN_ALLOCATOR_TESTS 1
@@ -176,7 +175,7 @@ typedef struct Block {
     struct Block* next;
 } Block;
 
-#define BLOCK_SIZE sizeof(Block)
+#define BLOCK_SIZE ((sizeof(Block) + 7) & ~7)
 
 Block* free_list_head = NULL;
 
@@ -189,11 +188,37 @@ Block* find_free_block(size_t size) {
 }
 
 void* custom_malloc(size_t size) {
+    if (size <= 0) return NULL;
 
+    size = (size + 7) & ~7;
+
+    // 1. Try to find an existing free block
+    Block* block = find_free_block(size);
+    if (block) {
+        block->free = 0;
+        return (void*)(block + 1);
+    }
+
+    // 2. No block found, request memory from OS
+    size_t total_size = BLOCK_SIZE + size;
+    total_size = (total_size + 7) & ~7;
+
+    block = (Block*)_sbrk(total_size);
+    if (block == NULL) return NULL;
+
+    block->size = total_size - BLOCK_SIZE; 
+    block->free = 0;
+    block->next = free_list_head;
+    free_list_head = block;
+
+    return (void*)(block + 1);
 }
 
 void custom_free(void* ptr) {
+    if (!ptr) return;
 
+    Block* block = (Block*)ptr - 1;
+    block->free = 1;
 }
 
 /* 
