@@ -102,10 +102,13 @@ static void proc_yield() {
             ulonglong current_time = mtime_get();
             ulonglong runtime = current_time - proc_set[curr_proc_idx].last_schedule_time;
             proc_set[curr_proc_idx].total_cpu_time += runtime;
+            mlfq_update_level(&proc_set[curr_proc_idx], runtime);
         }
         proc_set[curr_proc_idx].last_schedule_time = 0;
         proc_set_runnable(curr_pid);
     }
+
+    mlfq_reset_level();
 
     /* [System Call & Protection]
      * Do not schedule a process that should still be sleeping at this time. */
@@ -114,13 +117,20 @@ static void proc_yield() {
     /* [Preemptive Scheduler]
      * Modify the loop below to find the next process to schedule with MLFQ. */
     int next_idx = MAX_NPROCESS;
+    int best_level = MLFQ_NLEVELS;
     for (uint i = 1; i <= MAX_NPROCESS; i++) {
         struct process* p = &proc_set[(curr_proc_idx + i) % MAX_NPROCESS];
         if (p->status == PROC_PENDING_SYSCALL) proc_try_syscall(p);
 
         if (p->status == PROC_READY || p->status == PROC_RUNNABLE) {
-            next_idx = (curr_proc_idx + i) % MAX_NPROCESS;
-            break;
+            int lvl = p->mlfq_level;
+            if (lvl < 0) lvl = 0;
+            if (lvl >= MLFQ_NLEVELS) lvl = MLFQ_NLEVELS - 1;
+            if (lvl < best_level) {
+                best_level = lvl;
+                next_idx = (curr_proc_idx + i) % MAX_NPROCESS;
+                if (best_level == 0) break;
+            }
         }
     }
 

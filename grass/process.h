@@ -3,6 +3,10 @@
 #include "egos.h"
 #include "syscall.h"
 
+#define MLFQ_NLEVELS          5
+#define MLFQ_RESET_PERIOD     10000000         /* 10 seconds */
+#define MLFQ_LEVEL_RUNTIME(x) (x + 1) * 100000 /* e.g., 100ms for level 0 */
+
 enum proc_status {
     PROC_UNUSED,
     PROC_LOADING,
@@ -26,6 +30,10 @@ struct process {
     ulonglong total_cpu_time;
     int timer_interrupts;
     int scheduled_before;
+
+    /* For MLFQ scheduler */
+    int mlfq_level;
+    ulonglong mlfq_level_remaining;
 
     /* Student's code ends here. */
 };
