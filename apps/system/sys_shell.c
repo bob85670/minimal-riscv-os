@@ -30,6 +30,7 @@ int main() {
     while (1) {
         struct proc_request req;
         struct proc_reply reply;
+        memset(&req, 0, sizeof(req));
 
         if (strcmp(buf, "coresinfo") == 0) {
             /* Student's code goes here (Multicore & Locks). */

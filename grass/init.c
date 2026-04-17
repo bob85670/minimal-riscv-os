@@ -25,6 +25,7 @@ void grass_entry(uint core_id) {
     /* Student's code goes here (System Call | Multicore & Locks). */
 
     /* Initialize the grass interface for proc_sleep() or proc_coresinfo(). */
+    grass->proc_sleep = proc_sleep;
 
     /* Student's code ends here. */
 

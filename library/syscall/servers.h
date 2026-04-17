@@ -25,9 +25,10 @@ struct proc_request {
     /* Student's code goes here (System Call & Protection). */
 
     /* Update struct proc_request to support process sleep. */
-    enum { PROC_SPAWN, PROC_EXIT, PROC_KILLALL } type;
+    enum { PROC_SPAWN, PROC_EXIT, PROC_KILLALL, PROC_SLEEP } type;
     int argc;
     char argv[CMD_NARGS][CMD_ARG_LEN];
+    uint usec;
     /* Student's code ends here. */
 };
 
