@@ -45,6 +45,8 @@ void kernel_entry() {
 #define EXCP_ID_ECALL_M 11
 static void proc_yield();
 static void proc_try_syscall(struct process* proc);
+static void wake_sleepers(void);
+static int pick_next_idx(void);
 
 static void excp_entry(uint id) {
     if (id >= EXCP_ID_ECALL_U && id <= EXCP_ID_ECALL_M) {
@@ -90,6 +92,37 @@ static void intr_entry(uint id) {
     /* Student's code ends here. */
 }
 
+static void wake_sleepers(void) {
+    for (uint i = 1; i <= MAX_NPROCESS; i++) {
+        if (proc_set[i].status == PROC_SLEEPING &&
+            mtime_get() >= proc_set[i].sleep_until) {
+            proc_set[i].sleep_until = 0;
+            proc_set_runnable(proc_set[i].pid);
+        }
+    }
+}
+
+static int pick_next_idx(void) {
+    int next_idx = MAX_NPROCESS;
+    int best_level = MLFQ_NLEVELS;
+    for (uint i = 1; i <= MAX_NPROCESS; i++) {
+        struct process* p = &proc_set[(curr_proc_idx + i) % MAX_NPROCESS];
+        if (p->status == PROC_PENDING_SYSCALL) proc_try_syscall(p);
+
+        if (p->status == PROC_READY || p->status == PROC_RUNNABLE) {
+            int lvl = p->mlfq_level;
+            if (lvl < 0) lvl = 0;
+            if (lvl >= MLFQ_NLEVELS) lvl = MLFQ_NLEVELS - 1;
+            if (lvl < best_level) {
+                best_level = lvl;
+                next_idx = (curr_proc_idx + i) % MAX_NPROCESS;
+                if (best_level == 0) break;
+            }
+        }
+    }
+    return next_idx;
+}
+
 static void proc_yield() {
     /* Student's code goes here (Multiple Projects). */
 
@@ -113,49 +146,29 @@ static void proc_yield() {
     /* [System Call & Protection]
      * Do not schedule a process that should still be sleeping at this time. */
 
+    int next_idx;
+    do {
+        wake_sleepers();
+        next_idx = pick_next_idx();
+        if (next_idx < MAX_NPROCESS) break;
+
+        curr_proc_idx = 0;
+        earth->timer_reset(core_in_kernel);
+        asm("csrs mstatus, %0" ::"r"(8));
+        asm("wfi");
+    } while (1);
 
     /* [Preemptive Scheduler]
-     * Modify the loop below to find the next process to schedule with MLFQ. */
-    int next_idx = MAX_NPROCESS;
-    int best_level = MLFQ_NLEVELS;
-    for (uint i = 1; i <= MAX_NPROCESS; i++) {
-        struct process* p = &proc_set[(curr_proc_idx + i) % MAX_NPROCESS];
-        if (p->status == PROC_PENDING_SYSCALL) proc_try_syscall(p);
-
-        if (p->status == PROC_READY || p->status == PROC_RUNNABLE) {
-            int lvl = p->mlfq_level;
-            if (lvl < 0) lvl = 0;
-            if (lvl >= MLFQ_NLEVELS) lvl = MLFQ_NLEVELS - 1;
-            if (lvl < best_level) {
-                best_level = lvl;
-                next_idx = (curr_proc_idx + i) % MAX_NPROCESS;
-                if (best_level == 0) break;
-            }
-        }
+     * Measure and record lifecycle statistics for the *next* process. */
+    struct process* next_proc = &proc_set[next_idx];
+    if (!next_proc->scheduled_before && next_proc->status == PROC_READY) {
+        next_proc->first_schedule_time = mtime_get();
+        next_proc->scheduled_before = 1;
     }
 
-    if (next_idx < MAX_NPROCESS) {
-        /* [Preemptive Scheduler]
-         * Measure and record lifecycle statistics for the *next* process. */
-        struct process* next_proc = &proc_set[next_idx];
-        if (!next_proc->scheduled_before && next_proc->status == PROC_READY) {
-            next_proc->first_schedule_time = mtime_get();
-            next_proc->scheduled_before = 1;
-        }
+    /* [System Call & Protection | Multicore & Locks]
+     * Modify mstatus.MPP to enter machine or user mode after mret. */
 
-        /* [System Call & Protection | Multicore & Locks]
-         * Modify mstatus.MPP to enter machine or user mode after mret. */
-
-    } else {
-        /* [Multicore & Locks]
-         * Release the kernel lock.
-         * [Multicore & Locks | System Call & Protection]
-         * Set curr_proc_idx to 0; Reset the timer;
-         * Enable interrupts by setting the mstatus.MIE bit to 1;
-         * Wait for the next interrupt using the wfi instruction. */
-
-        FATAL("proc_yield: no process to run on core %d", core_in_kernel);
-    }
     /* Student's code ends here. */
 
     curr_proc_idx = next_idx;
@@ -191,6 +204,9 @@ static void proc_try_send(struct process* sender) {
             /* Copy the system call arguments within the kernel PCB. */
             memcpy(dst->syscall.content, sender->syscall.content,
                    SYSCALL_MSG_LEN);
+            struct proc_request* req = (void*)sender->syscall.content;
+            if (dst->pid == GPID_PROCESS && req->type == PROC_SLEEP)
+                proc_sleep(sender->pid, req->usec);
             return;
         }
     }
@@ -203,6 +219,12 @@ static void proc_try_recv(struct process* receiver) {
     /* Copy the system call struct from the kernel back to user space. */
     uint syscall_paddr = earth->mmu_translate(receiver->pid, SYSCALL_ARG);
     memcpy((void*)syscall_paddr, &receiver->syscall, sizeof(struct syscall));
+
+    struct proc_request* req = (void*)receiver->syscall.content;
+    if (receiver->pid == GPID_PROCESS && req->type == PROC_SLEEP) {
+        proc_set_runnable(receiver->pid);
+        return;
+    }
 
     /* Set the receiver and sender back to RUNNABLE. */
     proc_set_runnable(receiver->pid);

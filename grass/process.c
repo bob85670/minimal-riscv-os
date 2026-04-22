@@ -36,6 +36,7 @@ int proc_alloc() {
             proc_set[i].scheduled_before = 0;
             proc_set[i].mlfq_level = 0;
             proc_set[i].mlfq_level_remaining = MLFQ_LEVEL_RUNTIME(0);
+            proc_set[i].sleep_until = 0;
 
             /* Student's code ends here. */
             return curr_pid;
@@ -70,7 +71,8 @@ void proc_free(int pid) {
                      turnaround_ms, response_ms, cpu_ms);
                 
                 earth->mmu_free(pid);
-                proc_set[i].status = PROC_UNUSED;
+                proc_set[i].sleep_until = 0;
+                proc_set[i].status      = PROC_UNUSED;
                 break;
             }
         }
@@ -97,7 +99,8 @@ void proc_free(int pid) {
                      turnaround_ms, response_ms, cpu_ms);
                 
                 earth->mmu_free(proc_set[i].pid);
-                proc_set[i].status = PROC_UNUSED;
+                proc_set[i].sleep_until = 0;
+                proc_set[i].status      = PROC_UNUSED;
             }
         }
     }
@@ -173,6 +176,15 @@ void proc_sleep(int pid, uint usec) {
     /* Student's code goes here (System Call & Protection). */
 
     /* Update the sleep-related fields in the struct process for process pid. */
+    for (uint i = 0; i < MAX_NPROCESS; i++) {
+        if (proc_set[i].pid != pid || proc_set[i].status == PROC_UNUSED) continue;
+        ulonglong until = mtime_get() + (ulonglong)usec * 10ULL;
+        if (proc_set[i].status == PROC_SLEEPING && proc_set[i].sleep_until > mtime_get())
+            return;
+        proc_set[i].sleep_until = until;
+        proc_set[i].status      = PROC_SLEEPING;
+        return;
+    }
 
     /* Student's code ends here. */
 }
