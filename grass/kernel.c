@@ -181,10 +181,9 @@ static void proc_yield() {
     /* [System Call & Protection | Multicore & Locks]
      * Modify mstatus.MPP to enter machine or user mode after mret. */
     {
-        uint mstatus;
-        uint mpp = (uint)(next_proc->pid < GPID_USER_START ? 3 : 0);
+        uint mstatus, mpp = next_proc->pid < GPID_USER_START ? 3 : 0;
         asm("csrr %0, mstatus" : "=r"(mstatus));
-        mstatus = (mstatus & ~(3U << 11)) | (mpp << 11);
+        mstatus = (mstatus & ~(3 << 11)) | (mpp << 11);
         asm("csrw mstatus, %0" : : "r"(mstatus));
     }
 
