@@ -203,6 +203,14 @@ void mmu_init() {
 
     /* Replace the PMP region above with a NAPOT region 0x80200000 - 0x80400000
      * and set the permission for user mode access as r/w/x. */
+    {
+        uint pmp_napot_addr, sz = 0x200000;
+        pmp_napot_addr = (0x80200000U | ((sz - 1) >> 1)) >> 2;
+        asm volatile("csrw pmpaddr0, %0" : : "r"(pmp_napot_addr));
+        /* R, W, X, NAPOT (A=3 in bits 3-4) */
+        asm volatile("csrw pmpcfg0, %0" : : "r"(0x1F));
+        asm volatile("fence" ::: "memory");
+    }
 
     /* Student's code ends here. */
 

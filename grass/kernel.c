@@ -65,6 +65,18 @@ static void excp_entry(uint id) {
     /* Student's code goes here (System Call & Protection | Virtual Memory). */
 
     /* Kill the current process if curr_pid is a user application. */
+    if (curr_pid >= GPID_USER_START) {
+        for (uint i = 0; i < MAX_NPROCESS; i++) {
+            if (proc_set[i].pid != curr_pid) continue;
+            earth->mmu_free(curr_pid);
+            proc_set[i].sleep_until = 0;
+            proc_set[i].status      = PROC_UNUSED;
+            break;
+        }
+        INFO("process %d terminated with exception %d", curr_pid, id);
+        proc_yield();
+        return;
+    }
 
     /* Student's code ends here. */
     FATAL("excp_entry: kernel got exception %d", id);
@@ -168,6 +180,13 @@ static void proc_yield() {
 
     /* [System Call & Protection | Multicore & Locks]
      * Modify mstatus.MPP to enter machine or user mode after mret. */
+    {
+        uint mstatus;
+        uint mpp = (uint)(next_proc->pid < GPID_USER_START ? 3 : 0);
+        asm("csrr %0, mstatus" : "=r"(mstatus));
+        mstatus = (mstatus & ~(3U << 11)) | (mpp << 11);
+        asm("csrw mstatus, %0" : : "r"(mstatus));
+    }
 
     /* Student's code ends here. */
 
