@@ -14,12 +14,20 @@
 #define PAGE_NO_TO_ADDR(x) (char*)(x * PAGE_SIZE)
 #define PAGE_ID_TO_ADDR(x) ((char*)APPS_PAGES_BASE + x * PAGE_SIZE)
 #define APPS_PAGES_CNT     (RAM_END - APPS_PAGES_BASE) / PAGE_SIZE
+#define PAGE_TABLE_VPAGE   0xFFFFFFFFU
+#define SATP_MODE_SV32     (1U << 31)
+#define MAX_NPROCESS       256
 
 struct page_info {
     int use;
     int pid;
     uint vpage_no;
 } page_info_table[APPS_PAGES_CNT];
+
+static uint* root;
+static uint* leaf;
+static uint* pid_to_pagetable_base[MAX_NPROCESS];
+/* Assume at most MAX_NPROCESS unique processes just for simplicity. */
 
 uint mmu_alloc() {
     for (uint i = 0; i < APPS_PAGES_CNT; i++)
@@ -31,9 +39,16 @@ uint mmu_alloc() {
 }
 
 void mmu_free(int pid) {
+    uint released = 0, page_tables = 0;
     for (uint i = 0; i < APPS_PAGES_CNT; i++)
-        if (page_info_table[i].use && page_info_table[i].pid == pid)
+        if (page_info_table[i].use && page_info_table[i].pid == pid) {
+            released++;
+            if (page_info_table[i].vpage_no == PAGE_TABLE_VPAGE) page_tables++;
             memset(&page_info_table[i], 0, sizeof(struct page_info));
+        }
+    if (pid >= 0 && pid < MAX_NPROCESS) pid_to_pagetable_base[pid] = 0;
+    INFO("mmu_free released %d pages (%d are page tables) for process %d",
+         released, page_tables, pid);
 }
 
 void soft_tlb_map(int pid, uint vpage_no, uint ppage_id) {
@@ -66,12 +81,12 @@ uint soft_tlb_translate(int pid, uint vaddr) {
 }
 
 /* The code below creates an identity map using page tables (RISC-V Sv32). */
-#define USER_RWX     (0xC0 | 0x1F)
-#define MAX_NPROCESS 256
-static uint* root;
-static uint* leaf;
-static uint* pid_to_pagetable_base[MAX_NPROCESS];
-/* Assume at most MAX_NPROCESS unique processes just for simplicity. */
+#define USER_RWX (0xC0 | 0x1F)
+
+static void mark_page_table_page(int pid, uint ppage_id) {
+    page_info_table[ppage_id].pid      = pid;
+    page_info_table[ppage_id].vpage_no = PAGE_TABLE_VPAGE;
+}
 
 void setup_identity_region(int pid, uint addr, uint npages, uint flag) {
     uint vpn1 = addr >> 22;
@@ -83,7 +98,7 @@ void setup_identity_region(int pid, uint addr, uint npages, uint flag) {
         /* Allocate the leaf page table. */
         uint ppage_id                 = earth->mmu_alloc();
         leaf                          = (void*)PAGE_ID_TO_ADDR(ppage_id);
-        page_info_table[ppage_id].pid = pid;
+        mark_page_table_page(pid, ppage_id);
         memset(leaf, 0, PAGE_SIZE);
         root[vpn1] = ((uint)leaf >> 2) | 0x1;
     }
@@ -98,7 +113,7 @@ void pagetable_identity_map(int pid) {
     /* Allocate the root page table. */
     uint ppage_id                 = earth->mmu_alloc();
     root                          = (void*)PAGE_ID_TO_ADDR(ppage_id);
-    page_info_table[ppage_id].pid = pid;
+    mark_page_table_page(pid, ppage_id);
     pid_to_pagetable_base[pid]    = root;
     memset(root, 0, PAGE_SIZE);
 
@@ -221,7 +236,7 @@ void mmu_init() {
     if (earth->translation == PAGE_TABLE) {
         /* Setup an identity map using page tables. */
         pagetable_identity_map(0);
-        asm("csrw satp, %0" ::"r"(((uint)root >> 12) | (1 << 31)));
+        asm("csrw satp, %0" ::"r"(((uint)root >> 12) | SATP_MODE_SV32));
 
         earth->mmu_map       = page_table_map;
         earth->mmu_switch    = page_table_switch;

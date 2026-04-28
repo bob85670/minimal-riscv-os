@@ -66,7 +66,7 @@ static void excp_entry(uint id) {
 
     /* Kill the current process if curr_pid is a user application. */
     if (curr_pid >= GPID_USER_START) {
-        for (uint i = 0; i < MAX_NPROCESS; i++) {
+        for (uint i = 1; i <= MAX_NPROCESS; i++) {
             if (proc_set[i].pid != curr_pid) continue;
             earth->mmu_free(curr_pid);
             proc_set[i].sleep_until = 0;
