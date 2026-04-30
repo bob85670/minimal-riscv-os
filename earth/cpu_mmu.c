@@ -162,7 +162,37 @@ void page_table_map(int pid, uint vpage_no, uint ppage_id) {
      *
      * (2) After building page tables for pid (or if page tables for pid exist),
      *     update the page tables and map vpage_no to ppage_id based on Sv32. */
-    soft_tlb_map(pid, vpage_no, ppage_id);
+    if (pid_to_pagetable_base[pid] == 0) {
+        if (pid < GPID_USER_START) {
+            pagetable_identity_map(pid);
+        } else {
+            uint root_ppage_id      = earth->mmu_alloc();
+            root                    = (void*)PAGE_ID_TO_ADDR(root_ppage_id);
+            mark_page_table_page(pid, root_ppage_id);
+            memset(root, 0, PAGE_SIZE);
+            pid_to_pagetable_base[pid] = root;
+            setup_identity_region(pid, SHELL_WORK_DIR, 1, USER_RWX);
+        }
+    }
+
+    root = pid_to_pagetable_base[pid];
+    uint vaddr = vpage_no * PAGE_SIZE;
+    uint vpn1  = vaddr >> 22;
+    uint vpn0  = (vaddr >> 12) & 0x3FF;
+
+    if (root[vpn1] & 0x1) {
+        leaf = (void*)((root[vpn1] << 2) & 0xFFFFF000);
+    } else {
+        uint leaf_ppage_id = earth->mmu_alloc();
+        leaf               = (void*)PAGE_ID_TO_ADDR(leaf_ppage_id);
+        mark_page_table_page(pid, leaf_ppage_id);
+        memset(leaf, 0, PAGE_SIZE);
+        root[vpn1] = ((uint)leaf >> 2) | 0x1;
+    }
+
+    page_info_table[ppage_id].pid      = pid;
+    page_info_table[ppage_id].vpage_no = vpage_no;
+    leaf[vpn0]                         = ((uint)PAGE_ID_TO_ADDR(ppage_id) >> 2) | USER_RWX;
 
     /* Student's code ends here. */
 }
@@ -173,7 +203,10 @@ void page_table_switch(int pid) {
     /* Remove the soft_tlb_switch below and, instead, update the page table
      * base register (satp) using the value of pid_to_pagetable_base[pid].
      * An example of updating the satp CSR is given in function mmu_init. */
-    soft_tlb_switch(pid);
+    if (pid >= MAX_NPROCESS || pid_to_pagetable_base[pid] == 0)
+        FATAL("page_table_switch: unknown pid=%d", pid);
+    asm("csrw satp, %0" : : "r"(((uint)pid_to_pagetable_base[pid] >> 12) |
+                                SATP_MODE_SV32));
 
     /* Student's code ends here. */
 }
@@ -183,7 +216,24 @@ uint page_table_translate(int pid, uint vaddr) {
 
     /* Remove the following line of code. Walk through the page tables
      * for process pid and return the physical address mapped from vaddr. */
-    return soft_tlb_translate(pid, vaddr);
+    if (pid >= MAX_NPROCESS || pid_to_pagetable_base[pid] == 0)
+        FATAL("page_table_translate: unknown pid=%d", pid);
+
+    uint* proc_root = pid_to_pagetable_base[pid];
+    uint vpn1       = vaddr >> 22;
+    uint root_pte   = proc_root[vpn1];
+    if (!(root_pte & 0x1))
+        FATAL("page_table_translate: unmapped vpn1 for pid=%d vaddr=0x%x", pid,
+              vaddr);
+
+    uint* proc_leaf = (void*)((root_pte << 2) & 0xFFFFF000);
+    uint vpn0       = (vaddr >> 12) & 0x3FF;
+    uint leaf_pte   = proc_leaf[vpn0];
+    if (!(leaf_pte & 0x1))
+        FATAL("page_table_translate: unmapped vpn0 for pid=%d vaddr=0x%x", pid,
+              vaddr);
+
+    return ((leaf_pte << 2) & 0xFFFFF000) | (vaddr & 0xFFF);
 
     /* Student's code ends here. */
 }
